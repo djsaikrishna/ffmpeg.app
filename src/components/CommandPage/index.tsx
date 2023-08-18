@@ -1,5 +1,5 @@
 import { RouteComponentProps } from "wouter-preact";
-import { useCallback, useMemo, useState } from "preact/hooks";
+import { useCallback, useEffect, useMemo, useState } from "preact/hooks";
 import { JobStatus, useEncoder } from "../../utils/ffmpeg/Encoder";
 
 import { Icons } from "../Icons";
@@ -96,6 +96,27 @@ export const CommandPage = ({ params: { slug } }: IProps): JSX.Element => {
 		});
 	}, [inputFiles]);
 
+	const handleReset = useCallback(() => {
+		setInputFiles((files) => files.map(() => null));
+		const newSelectorValues = selectors.map((s) => s.defaultValue ?? null);
+		setSelectorValues(newSelectorValues);
+		newSelectorValues.forEach((value, index) => {
+			if (value) {
+				setQueryString((qq) => ({ ...qq, [selectorIds[index]]: value }));
+			}
+		});
+	}, [selectors, selectorIds, setQueryString]);
+
+	const handleCopyToClipboard = useCallback(() => {
+		// TODO: get better output filename based on expected extension (eager 'outputFileNames')
+		const safeOutputFileNames = outputFileNames.map((o, i) => o ?? `output_${i}.ext`) as string[];
+		const safeSelectorValues = selectorValues.map((v) => v ?? "???") as string[];
+		// TODO: get better input filename suggestions based on mime type
+		const inputFileNames = inputFiles.map((f, i) => f?.name ?? `input_${i}.ext`);
+		const commandString = command.input.createCommandLine(inputFileNames, safeOutputFileNames, safeSelectorValues);
+		navigator.clipboard.writeText("ffmpeg " + commandString.join(" "));
+	}, [command.input, inputFiles, outputFileNames, selectorValues]);
+
 	const handleStart = useCallback(() => {
 		if (command && hasAllInputFiles && hasAllSelectorValues) {
 			const safeInputFiles = inputFiles as File[];
@@ -132,6 +153,8 @@ export const CommandPage = ({ params: { slug } }: IProps): JSX.Element => {
 				<IconButton className={s.closeButton} size={20} icon={Icons.Close} onClick={handleClose} />
 				<CommandForm
 					command={command.input}
+					onCopyToClipboard={handleCopyToClipboard}
+					onReset={handleReset}
 					onSetFile={handleSetFile}
 					onSetSelectorValue={handleSetSelectorValue}
 					outputFileNames={outputFileNames}
